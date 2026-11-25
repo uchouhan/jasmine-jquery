@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background: #C0C0C0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+  }
+  .window {
+    background: #C0C0C0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+    padding: 6px;
+    display: inline-block;
+  }
+  .titlebar {
+    background: #000080;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 4px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .titlebar span { flex: 1; }
+  .titlebar .closebtn {
+    background: #C0C0C0;
+    border-top: 1px solid #fff;
+    border-left: 1px solid #fff;
+    border-right: 1px solid #404040;
+    border-bottom: 1px solid #404040;
+    width: 14px; height: 14px;
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #000;
+  }
+  .panel {
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    padding: 6px;
+  }
+  .header {
+    background: #C0C0C0;
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .lcd {
+    background: #000;
+    color: #FF0000;
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 2px 4px;
+    min-width: 44px;
+    text-align: right;
+    letter-spacing: 2px;
+  }
+  .face-btn {
+    background: #C0C0C0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+    width: 28px; height: 28px;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border-style: solid;
+  }
+  .face-btn:active {
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+  }
+  .grid-wrap {
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    display: inline-block;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(9, 24px);
+    grid-template-rows: repeat(9, 24px);
+  }
+  .cell {
+    width: 24px; height: 24px;
+    background: #C0C0C0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .cell.revealed {
+    border: 1px solid #808080;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    cursor: default;
+  }
+  .cell.n1 { color: #0000FF; }
+  .cell.n2 { color: #007B00; }
+  .cell.n3 { color: #FF0000; }
+  .cell.n4 { color: #00007B; }
+  .cell.n5 { color: #7B0000; }
+  .cell.n6 { color: #007B7B; }
+  .cell.n7 { color: #000000; }
+  .cell.n8 { color: #7B7B7B; }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span>Minesweeper</span>
+    <div class="closebtn">✕</div>
+  </div>
+  <div class="panel">
+    <div class="header">
+      <div class="lcd" id="mine-lcd">010</div>
+      <button class="face-btn" id="face">😊</button>
+      <div class="lcd" id="timer-lcd">000</div>
+    </div>
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ROWS = 9, COLS = 9, MINES = 10;
+  let board = [], revealed = [], flagged = [], mineCount = MINES, timer = 0, interval = null, started = false, dead = false;
+  const numberColors = ['','n1','n2','n3','n4','n5','n6','n7','n8'];
+
+  function placeMines(safeR, safeC) {
+    let positions = [];
+    while (positions.length < MINES) {
+      let r = Math.floor(Math.random()*ROWS), c = Math.floor(Math.random()*COLS);
+      if ((r===safeR && c===safeC) || positions.some(p=>p[0]===r&&p[1]===c)) continue;
+      positions.push([r,c]);
+    }
+    board = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    for (let [r,c] of positions) board[r][c] = -1;
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+      if (board[r][c]===-1) continue;
+      let count=0;
+      for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+        let nr=r+dr,nc=c+dc;
+        if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===-1) count++;
+      }
+      board[r][c]=count;
+    }
+  }
+
+  function init() {
+    board=[]; revealed=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    flagged=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    mineCount=MINES; timer=0; started=false; dead=false;
+    clearInterval(interval); interval=null;
+    document.getElementById('face').textContent='😊';
+    updateLCD();
+    renderGrid();
+  }
+
+  function updateLCD() {
+    document.getElementById('mine-lcd').textContent = String(Math.max(0,mineCount)).padStart(3,'0');
+    document.getElementById('timer-lcd').textContent = String(Math.min(999,timer)).padStart(3,'0');
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML='';
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.dataset.r=r; cell.dataset.c=c;
+      if (revealed[r][c]) {
+        cell.classList.add('revealed');
+        if (board[r][c]===-1) cell.textContent='💣';
+        else if (board[r][c]>0) { cell.textContent=board[r][c]; cell.classList.add(numberColors[board[r][c]]); }
+      } else if (flagged[r][c]) {
+        cell.textContent='🚩';
+      }
+      cell.addEventListener('click', onClick);
+      cell.addEventListener('contextmenu', onRightClick);
+      grid.appendChild(cell);
+    }
+  }
+
+  function reveal(r,c) {
+    if (r<0||r>=ROWS||c<0||c>=COLS||revealed[r][c]||flagged[r][c]) return;
+    revealed[r][c]=true;
+    if (board[r][c]===0) for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) reveal(r+dr,c+dc);
+  }
+
+  function onClick(e) {
+    if (dead) return;
+    const r=+e.currentTarget.dataset.r, c=+e.currentTarget.dataset.c;
+    if (flagged[r][c]||revealed[r][c]) return;
+    if (!started) {
+      started=true; placeMines(r,c);
+      interval=setInterval(()=>{ timer++; updateLCD(); },1000);
+    }
+    if (board[r][c]===-1) {
+      dead=true; revealed[r][c]=true; clearInterval(interval);
+      document.getElementById('face').textContent='😵';
+      for(let rr=0;rr<ROWS;rr++) for(let cc=0;cc<COLS;cc++) if(board[rr][cc]===-1) revealed[rr][cc]=true;
+      renderGrid(); return;
+    }
+    reveal(r,c);
+    checkWin();
+    renderGrid(); updateLCD();
+  }
+
+  function onRightClick(e) {
+    e.preventDefault();
+    if (dead) return;
+    const r=+e.currentTarget.dataset.r, c=+e.currentTarget.dataset.c;
+    if (revealed[r][c]) return;
+    flagged[r][c]=!flagged[r][c];
+    mineCount += flagged[r][c] ? -1 : 1;
+    renderGrid(); updateLCD();
+  }
+
+  function checkWin() {
+    let unrevealed=0;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(!revealed[r][c]) unrevealed++;
+    if (unrevealed===MINES) {
+      dead=true; clearInterval(interval);
+      document.getElementById('face').textContent='😎';
+    }
+  }
+
+  document.getElementById('face').addEventListener('click', init);
+  init();
+</script>
+</body>
+</html>
